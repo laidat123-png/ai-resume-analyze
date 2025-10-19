@@ -13,31 +13,67 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const { auth, kv } = usePuterStore();
+  const { auth, kv, fs } = usePuterStore();
   const navigate = useNavigate();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loadingResumes, setLoadingResumes] = useState(false);
+  const [wiping, setWiping] = useState(false);
+
+  // Extracted so we can call it after wiping
+  const loadResumes = async () => {
+    setLoadingResumes(true);
+
+    const resumes = (await kv.list("resume:*", true)) as KVItem[];
+
+    const parsedResumes = resumes?.map(
+      (resume) => JSON.parse(resume.value) as Resume
+    );
+
+    setResumes(parsedResumes || []);
+    setLoadingResumes(false);
+  };
 
   useEffect(() => {
     if (!auth.isAuthenticated) navigate("/auth?next=/");
   }, [auth.isAuthenticated]);
 
   useEffect(() => {
-    const loadResumes = async () => {
-      setLoadingResumes(true);
-
-      const resumes = (await kv.list("resume:*", true)) as KVItem[];
-
-      const parsedResumes = resumes?.map(
-        (resume) => JSON.parse(resume.value) as Resume
-      );
-
-      setResumes(parsedResumes || []);
-      setLoadingResumes(false);
-    };
-
     loadResumes();
   }, []);
+
+  const handleWipe = async () => {
+    if (
+      !confirm(
+        "This will delete all uploaded files and resume data. Are you sure?"
+      )
+    )
+      return;
+    try {
+      setWiping(true);
+
+      const files = (await fs.readDir("./")) as FSItem[];
+      for (const file of files) {
+        try {
+          await fs.delete(file.path);
+        } catch (e) {
+          // continue deleting other files even if one fails
+          console.error("Failed to delete", file.path, e);
+        }
+      }
+
+      await kv.flush();
+
+      // reload resumes list
+      await loadResumes();
+
+      alert("Wipe complete.");
+    } catch (e) {
+      console.error("Wipe failed", e);
+      alert("Wipe failed. See console for details.");
+    } finally {
+      setWiping(false);
+    }
+  };
 
   return (
     <main className="bg-[url('/images/bg-main.svg')] bg-cover">
@@ -50,6 +86,22 @@ export default function Home() {
             <h2>No resumes found. Upload your first resume to get feedback.</h2>
           ) : (
             <h2>Review your submissions and check AI-powered feedback.</h2>
+          )}
+          {/* Show Wipe button when we have at least one resume */}
+          {!loadingResumes && resumes?.length > 0 && (
+            <div className="mt-4">
+              <button
+                onClick={() => handleWipe()}
+                disabled={wiping}
+                className={`px-4 py-2 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-300 ${
+                  wiping
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-red-600 hover:bg-red-700 cursor-pointer"
+                }`}
+              >
+                {wiping ? "Wiping..." : "Wipe All Data"}
+              </button>
+            </div>
           )}
         </div>
         {loadingResumes && (
@@ -67,7 +119,7 @@ export default function Home() {
         )}
 
         {!loadingResumes && resumes?.length === 0 && (
-          <div className="flex flex-col items-center justify-center mt-10 gap-4">
+          <div className="flex flex-col items-center justify-center gap-4">
             <Link
               to="/upload"
               className="primary-button w-fit text-xl font-semibold"
