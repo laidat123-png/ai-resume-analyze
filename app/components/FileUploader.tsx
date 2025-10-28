@@ -11,14 +11,16 @@ const FileUploader = ({ onFileSelect }: FileUploaderProps) => {
     (acceptedFiles: File[]) => {
       const file = acceptedFiles[0] || null;
 
+      // update parent and local selected file state
       onFileSelect?.(file);
+      setSelectedFile(file);
     },
     [onFileSelect]
   );
 
   const maxFileSize = 20 * 1024 * 1024; // 20MB in bytes
 
-  const { getRootProps, getInputProps, isDragActive, acceptedFiles } =
+  const { getRootProps, getInputProps, isDragActive, acceptedFiles, inputRef } =
     useDropzone({
       onDrop,
       multiple: false,
@@ -26,12 +28,16 @@ const FileUploader = ({ onFileSelect }: FileUploaderProps) => {
       maxSize: maxFileSize,
     });
 
-  const file = acceptedFiles[0] || null;
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // prefer our controlled selectedFile (so remove/X reliably updates UI)
+  const file = selectedFile || acceptedFiles[0] || null;
 
   return (
     <div className="w-full gradient-border">
       <div {...getRootProps()}>
-        <input {...getInputProps()} />
+        {/* attach dropzone's inputRef so dropzone behavior remains intact */}
+        <input {...getInputProps()} ref={inputRef} />
 
         <div className="space-y-4 cursor-pointer">
           {file ? (
@@ -53,7 +59,34 @@ const FileUploader = ({ onFileSelect }: FileUploaderProps) => {
               <button
                 className="p-2 cursor-pointer"
                 onClick={(e) => {
+                  // prevent parent handlers
+                  e.stopPropagation();
+                  // notify parent and clear our controlled state
                   onFileSelect?.(null);
+                  setSelectedFile(null);
+
+                  // clear the native file input so react-dropzone acceptedFiles resets
+                  try {
+                    const ref = inputRef && (inputRef as any).current;
+                    if (ref) {
+                      // clear the value
+                      try {
+                        ref.value = "";
+                      } catch (err) {
+                        // ignore
+                      }
+
+                      // dispatch change event so react-dropzone notices the mutation
+                      try {
+                        const ev = new Event("change", { bubbles: true });
+                        ref.dispatchEvent(ev);
+                      } catch (err) {
+                        // ignore
+                      }
+                    }
+                  } catch (err) {
+                    // ignore
+                  }
                 }}
               >
                 <img src="/icons/cross.svg" alt="remove" className="w-4 h-4" />

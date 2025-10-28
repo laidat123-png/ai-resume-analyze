@@ -13,7 +13,7 @@ interface ATSProps {
 const ATS: React.FC<ATSProps> = ({ score, suggestions }) => {
   // Determine background gradient based on score
   const gradientClass =
-    score > 69
+    score > 70
       ? "from-green-100"
       : score > 49
         ? "from-yellow-100"
@@ -21,7 +21,7 @@ const ATS: React.FC<ATSProps> = ({ score, suggestions }) => {
 
   // Determine icon based on score
   const iconSrc =
-    score > 69
+    score > 70
       ? "/icons/ats-good.svg"
       : score > 49
         ? "/icons/ats-warning.svg"
@@ -29,7 +29,7 @@ const ATS: React.FC<ATSProps> = ({ score, suggestions }) => {
 
   // Determine subtitle based on score
   const subtitle =
-    score > 69 ? "Great Job!" : score > 49 ? "Good Start" : "Needs Improvement";
+    score > 70 ? "Great Job!" : score > 49 ? "Good Start" : "Needs Improvement";
 
   return (
     <div

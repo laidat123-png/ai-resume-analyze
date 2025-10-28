@@ -19,7 +19,10 @@ export default function Home() {
   const [loadingResumes, setLoadingResumes] = useState(false);
   const [wiping, setWiping] = useState(false);
 
-  // Extracted so we can call it after wiping
+  // lấy danh sách "resume metadata" từ kho KV (key-value),
+  // chuyển giá trị JSON thành các object Resume, và cập nhật state của component
+  // để giao diện hiển thị danh sách này. Nói cách khác: hàm này chịu trách nhiệm nạp dữ liệu resume (metadata)
+  // khi trang Home được mở hoặc sau khi có thay đổi (ví dụ sau khi wipe).
   const loadResumes = async () => {
     setLoadingResumes(true);
 
@@ -55,10 +58,7 @@ export default function Home() {
       for (const file of files) {
         try {
           await fs.delete(file.path);
-        } catch (e) {
-          // continue deleting other files even if one fails
-          console.error("Failed to delete", file.path, e);
-        }
+        } catch (e) {}
       }
 
       await kv.flush();
@@ -68,7 +68,6 @@ export default function Home() {
 
       alert("Wipe complete.");
     } catch (e) {
-      console.error("Wipe failed", e);
       alert("Wipe failed. See console for details.");
     } finally {
       setWiping(false);
